@@ -31,6 +31,7 @@ const infoToggle = document.getElementById("info-toggle");
 const playlistNav = document.getElementById("playlist-nav");
 const prevButton = document.getElementById("prev-button");
 const nextButton = document.getElementById("next-button");
+const darkToggle = document.getElementById("dark-toggle");
 
 let tokenClient = null;
 let allSongs = [];        // alle geladenen Lieder [{id, title}]
@@ -59,6 +60,20 @@ function saveJSON(key, value) {
 let favorites = loadJSON("songbook_favorites", []);
 let recent = loadJSON("songbook_recent", []);
 let fontSize = Number(localStorage.getItem("songbook_fontsize")) || 19;
+let groupMode = localStorage.getItem("songbook_groupmode") || "title"; // "title" | "interpret"
+
+// --- Dunkler Modus ---------------------------------------------------
+function applyDarkMode() {
+  const on = localStorage.getItem("songbook_dark") === "1";
+  document.body.classList.toggle("dark", on);
+  darkToggle.textContent = on ? "☀️" : "🌙";
+}
+darkToggle.addEventListener("click", () => {
+  const on = localStorage.getItem("songbook_dark") === "1";
+  localStorage.setItem("songbook_dark", on ? "0" : "1");
+  applyDarkMode();
+});
+applyDarkMode();
 
 // --- Ansicht umschalten ----------------------------------------------
 function showOnly(view) {
@@ -394,12 +409,7 @@ function renderList(filterText) {
     appendSection("🕘 Zuletzt geöffnet", recentSongs);
   }
 
-  appendSection(
-    favSongs.length || recentlyAdded.length || recentSongs.length
-      ? "Alle Lieder"
-      : null,
-    matches
-  );
+  appendAllSongs(matches);
 }
 
 function appendSection(title, songs) {
@@ -409,33 +419,108 @@ function appendSection(title, songs) {
     heading.textContent = title;
     listContainer.appendChild(heading);
   }
-
   const ul = document.createElement("ul");
   ul.className = "song-list";
-
-  for (const song of songs) {
-    const li = document.createElement("li");
-    li.className = "song-row";
-
-    const titleBtn = document.createElement("button");
-    titleBtn.className = "song-item";
-    titleBtn.textContent = song.title;
-    titleBtn.addEventListener("click", () => openSong(song));
-
-    const star = document.createElement("button");
-    star.className = "star-button";
-    star.textContent = favorites.includes(song.title) ? "★" : "☆";
-    star.title = "Als Favorit merken";
-    star.addEventListener("click", (e) => {
-      e.stopPropagation();
-      toggleFavorite(song.title);
-    });
-
-    li.appendChild(titleBtn);
-    li.appendChild(star);
-    ul.appendChild(li);
-  }
+  for (const song of songs) ul.appendChild(buildSongRow(song));
   listContainer.appendChild(ul);
+}
+
+// Eine Listenzeile (Titel-Knopf + Favoriten-Stern). displayText optional.
+function buildSongRow(song, displayText) {
+  const li = document.createElement("li");
+  li.className = "song-row";
+
+  const titleBtn = document.createElement("button");
+  titleBtn.className = "song-item";
+  titleBtn.textContent = displayText || song.title;
+  titleBtn.addEventListener("click", () => openSong(song));
+
+  const star = document.createElement("button");
+  star.className = "star-button";
+  star.textContent = favorites.includes(song.title) ? "★" : "☆";
+  star.title = "Als Favorit merken";
+  star.addEventListener("click", (e) => {
+    e.stopPropagation();
+    toggleFavorite(song.title);
+  });
+
+  li.appendChild(titleBtn);
+  li.appendChild(star);
+  return li;
+}
+
+// "Interpret - Titel" aufteilen.
+function splitArtistTitle(full) {
+  const idx = full.indexOf(" - ");
+  if (idx > 0) {
+    return { artist: full.slice(0, idx).trim(), title: full.slice(idx + 3).trim() };
+  }
+  return { artist: "", title: full.trim() };
+}
+
+// "Alle Lieder": Umschalter (Titel A–Z / Interpret) + gruppierte Liste.
+function appendAllSongs(songs) {
+  // Umschalter
+  const heading = document.createElement("h3");
+  heading.className = "section-heading";
+  heading.textContent = "Alle Lieder";
+  listContainer.appendChild(heading);
+
+  const toggle = document.createElement("div");
+  toggle.className = "sort-toggle";
+  [
+    { mode: "title", label: "Titel A–Z" },
+    { mode: "interpret", label: "Interpret" },
+  ].forEach((opt) => {
+    const btn = document.createElement("button");
+    btn.className = "sort-btn" + (groupMode === opt.mode ? " active" : "");
+    btn.textContent = opt.label;
+    btn.addEventListener("click", () => {
+      groupMode = opt.mode;
+      localStorage.setItem("songbook_groupmode", groupMode);
+      renderList(searchInput.value);
+    });
+    toggle.appendChild(btn);
+  });
+  listContainer.appendChild(toggle);
+
+  // Gruppieren
+  const groups = new Map(); // Überschrift -> [{song, displayText}]
+  const addTo = (key, song, displayText) => {
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push({ song, displayText });
+  };
+
+  if (groupMode === "interpret") {
+    for (const song of songs) {
+      const { artist, title } = splitArtistTitle(song.title);
+      addTo(artist || "Ohne Interpret", song, title || song.title);
+    }
+  } else {
+    for (const song of songs) {
+      const { artist, title } = splitArtistTitle(song.title);
+      const letter = (title[0] || "#").toUpperCase();
+      const disp = artist ? title + " – " + artist : title;
+      addTo(letter, song, disp);
+    }
+  }
+
+  // Überschriften sortieren und ausgeben
+  const keys = [...groups.keys()].sort((a, b) => a.localeCompare(b, "de"));
+  for (const key of keys) {
+    const h = document.createElement("h4");
+    h.className = "group-heading";
+    h.textContent = key;
+    listContainer.appendChild(h);
+
+    const ul = document.createElement("ul");
+    ul.className = "song-list";
+    groups
+      .get(key)
+      .sort((a, b) => a.displayText.localeCompare(b.displayText, "de"))
+      .forEach((e) => ul.appendChild(buildSongRow(e.song, e.displayText)));
+    listContainer.appendChild(ul);
+  }
 }
 
 // --- Playlisten ------------------------------------------------------

@@ -9,6 +9,19 @@
   --muted: #66707a;
   --accent: #3a6ea5;
   --border: #e3ded3;
+  --press: #eef1f4;
+  --header-bg: #1f2933;
+}
+
+body.dark {
+  --bg: #15181c;
+  --surface: #1f2429;
+  --text: #e7e9ec;
+  --muted: #9aa4ad;
+  --accent: #5a8fd0;
+  --border: #333b42;
+  --press: #2a3138;
+  --header-bg: #0f1216;
 }
 
 * {
@@ -33,7 +46,10 @@ body {
 .app-header {
   position: sticky;
   top: 0;
-  background: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--header-bg);
   color: #fff;
   padding: 16px 20px;
   z-index: 10;
@@ -43,6 +59,15 @@ body {
   margin: 0;
   font-size: 1.4rem;
   letter-spacing: 0.5px;
+}
+
+.dark-toggle {
+  font-size: 1.3rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  line-height: 1;
 }
 
 main {
@@ -114,7 +139,7 @@ main {
 }
 
 .refresh-button:active {
-  background: #eef1f4;
+  background: var(--press);
 }
 
 .pull-hint {
@@ -162,7 +187,7 @@ main {
 }
 
 .tag-chip:active {
-  background: #eef1f4;
+  background: var(--press);
 }
 
 .tag-chip.active {
@@ -184,6 +209,44 @@ main {
   text-align: center;
   color: var(--muted);
   margin-top: 24px;
+}
+
+/* --- Sortier-Umschalter (Titel A–Z / Interpret) --------------------- */
+.sort-toggle {
+  display: flex;
+  gap: 0;
+  margin: 4px 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.sort-btn {
+  flex: 1;
+  padding: 9px 6px;
+  font-size: 0.9rem;
+  color: var(--accent);
+  background: var(--surface);
+  border: none;
+  border-left: 1px solid var(--border);
+  cursor: pointer;
+}
+
+.sort-btn:first-child {
+  border-left: none;
+}
+
+.sort-btn.active {
+  color: #fff;
+  background: var(--accent);
+}
+
+/* --- Gruppen-Überschriften (A, B, C … / Interpret) ------------------ */
+.group-heading {
+  margin: 14px 4px 6px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--accent);
 }
 
 /* --- Songliste ------------------------------------------------------- */
@@ -213,7 +276,7 @@ main {
 }
 
 .song-item:active {
-  background: #eef1f4;
+  background: var(--press);
 }
 
 .playlist-item {
@@ -264,7 +327,7 @@ main {
 }
 
 .star-button:active {
-  background: #eef1f4;
+  background: var(--press);
 }
 
 /* --- Detailansicht --------------------------------------------------- */
@@ -292,7 +355,7 @@ main {
 }
 
 .tool-button:active {
-  background: #eef1f4;
+  background: var(--press);
 }
 
 .tool-button.active {
