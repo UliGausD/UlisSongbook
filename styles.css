@@ -269,6 +269,35 @@ main {
   font-size: 1.6rem;
 }
 
+/* --- Datei-Kopf (Zusammenfassung, Tags, Quelle) --------------------- */
+.song-meta {
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--accent);
+  border-radius: 10px;
+}
+
+.meta-summary {
+  font-size: 1rem;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.meta-tags {
+  margin-top: 8px;
+  font-size: 0.9rem;
+  color: var(--accent);
+}
+
+.meta-source {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 0.9rem;
+  color: var(--accent);
+}
+
 /* --- Umschalter Original / Übersetzung / Beide ---------------------- */
 .view-switch {
   display: flex;

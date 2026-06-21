@@ -20,6 +20,7 @@ const pullHint = document.getElementById("pull-hint");
 
 const songTitleEl = document.getElementById("song-title");
 const songContentEl = document.getElementById("song-content");
+const songMeta = document.getElementById("song-meta");
 const statusEl = document.getElementById("status");
 const viewSwitch = document.getElementById("view-switch");
 
@@ -220,10 +221,33 @@ function parseTags(text) {
   return [...tags];
 }
 
-// --- Tag-Chips anzeigen ----------------------------------------------
+// Tags, die auf praktisch jedem Lied stehen und nichts filtern.
+const NOISE_TAGS = ["musik", "lied", "songtext", "song"];
+
+// Interpreten-Namen aus den Dateinamen ("Interpret - Titel") als Tag-Form.
+function artistSlugSet() {
+  const set = new Set();
+  for (const song of allSongs) {
+    const idx = song.title.indexOf(" - ");
+    if (idx > 0) {
+      const artist = song.title.slice(0, idx);
+      set.add(artist.toLowerCase().trim().replace(/\s+/g, "-").replace(/[.,]/g, ""));
+    }
+  }
+  return set;
+}
+
+// --- Kategorie-Filter (aufgeräumte Tag-Chips) ------------------------
 function renderTagChips() {
+  const artists = artistSlugSet();
   const all = new Set();
-  Object.values(songTags).forEach((list) => list.forEach((t) => all.add(t)));
+  Object.values(songTags).forEach((list) =>
+    list.forEach((t) => {
+      if (NOISE_TAGS.includes(t)) return; // Allerwelts-Tags weglassen
+      if (artists.has(t)) return; // Interpreten-Namen weglassen
+      all.add(t);
+    })
+  );
 
   tagChips.innerHTML = "";
   if (all.size === 0) {
@@ -279,10 +303,18 @@ function renderList(filterText) {
     return;
   }
 
-  // Ohne Suche: Favoriten und Zuletzt oben, dann alle.
+  // Ohne Suche: Favoriten, Zuletzt hinzugefügt, Zuletzt geöffnet, dann alle.
   const favSongs = matches.filter((s) => favorites.includes(s.title));
   if (favSongs.length > 0) {
     appendSection("⭐ Favoriten", favSongs);
+  }
+
+  const recentlyAdded = matches
+    .filter((s) => s.createdTime)
+    .sort((a, b) => (a.createdTime < b.createdTime ? 1 : -1))
+    .slice(0, 5);
+  if (recentlyAdded.length > 0) {
+    appendSection("🆕 Zuletzt hinzugefügt", recentlyAdded);
   }
 
   const recentSongs = recent
@@ -294,7 +326,9 @@ function renderList(filterText) {
   }
 
   appendSection(
-    favSongs.length || recentSongs.length ? "Alle Lieder" : null,
+    favSongs.length || recentlyAdded.length || recentSongs.length
+      ? "Alle Lieder"
+      : null,
     matches
   );
 }
@@ -379,6 +413,7 @@ async function openSong(song) {
     setStatus("");
 
     currentParsed = parseSong(text);
+    renderMeta(text); // Infos aus dem Datei-Kopf (summary, tags, Quelle)
     // Umschalter nur zeigen, wenn es eine Übersetzung gibt.
     const hasTranslation = currentParsed.translation !== "";
     viewSwitch.hidden = !hasTranslation;
@@ -417,6 +452,59 @@ function parseSong(text) {
     original: lines.slice(0, splitAt).join("\n").trim(),
     translation: lines.slice(splitAt + 1).join("\n").trim(),
   };
+}
+
+// --- Infos aus dem Datei-Kopf (Frontmatter) auslesen -----------------
+function parseFrontmatter(text) {
+  const norm = text.replace(/\r\n/g, "\n");
+  const fm = norm.match(/^---\n([\s\S]*?)\n---/);
+  const meta = { summary: "", source: "" };
+  if (!fm) return meta;
+  const block = fm[1];
+
+  const unquote = (s) => s.trim().replace(/^["']|["']$/g, "");
+
+  const s = block.match(/^summary:\s*(.+)$/m);
+  if (s) meta.summary = unquote(s[1]);
+
+  // Quelle: Feld "source" oder "quelle"
+  const src = block.match(/^(?:source|quelle):\s*(.+)$/m);
+  if (src) meta.source = unquote(src[1]);
+
+  return meta;
+}
+
+// --- Datei-Kopf anzeigen (Zusammenfassung, Tags, Quelle) -------------
+function renderMeta(text) {
+  const meta = parseFrontmatter(text);
+  const tags = parseTags(text);
+  songMeta.innerHTML = "";
+
+  if (meta.summary) {
+    const p = document.createElement("div");
+    p.className = "meta-summary";
+    p.textContent = meta.summary;
+    songMeta.appendChild(p);
+  }
+
+  if (tags.length) {
+    const t = document.createElement("div");
+    t.className = "meta-tags";
+    t.textContent = tags.map((x) => "#" + x).join("  ");
+    songMeta.appendChild(t);
+  }
+
+  if (meta.source && /^https?:\/\//.test(meta.source)) {
+    const a = document.createElement("a");
+    a.className = "meta-source";
+    a.href = meta.source;
+    a.target = "_blank";
+    a.rel = "noopener";
+    a.textContent = "Quelle öffnen";
+    songMeta.appendChild(a);
+  }
+
+  songMeta.hidden = songMeta.children.length === 0;
 }
 
 // --- Anzeige je nach gewähltem Modus ---------------------------------

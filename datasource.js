@@ -48,7 +48,7 @@ async function fetchSongList() {
   const url =
     "https://www.googleapis.com/drive/v3/files" +
     "?q=" + query +
-    "&fields=files(id,name)" +
+    "&fields=files(id,name,createdTime)" +
     "&orderBy=name" +
     "&pageSize=1000";
 
@@ -63,6 +63,7 @@ async function fetchSongList() {
     .map((file) => ({
       id: file.id,
       title: file.name.replace(/\.md$/i, ""),
+      createdTime: file.createdTime || "",
     }))
     // alphabetisch sortieren (deutsche Sortierung)
     .sort((a, b) => a.title.localeCompare(b.title, "de"));
