@@ -1,0 +1,15 @@
+{
+  "name": "UlisSongbook",
+  "short_name": "Songbook",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#f7f5f0",
+  "theme_color": "#1f2933",
+  "icons": [
+    {
+      "src": "icon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

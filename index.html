@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>UlisSongbook</title>
+
+  <!-- Für "Zum Home-Bildschirm hinzufügen" auf dem iPhone -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="UlisSongbook" />
+  <meta name="theme-color" content="#1f2933" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="icon.png" />
+
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <h1>UlisSongbook</h1>
+  </header>
+
+  <main>
+    <!-- Startansicht: Login -->
+    <section id="login-view" class="view">
+      <p class="intro">Deine Liedtexte aus Google Drive.</p>
+      <button id="login-button" class="primary-button">Mit Google anmelden</button>
+      <button id="relogin-button" class="primary-button" hidden>Neu anmelden</button>
+    </section>
+
+    <!-- Liste aller Songs -->
+    <section id="list-view" class="view" hidden>
+      <input
+        id="search-input"
+        class="search-input"
+        type="search"
+        inputmode="search"
+        autocomplete="off"
+        placeholder="🔍 Titel oder #Tag suchen …"
+      />
+      <div id="tag-chips" class="tag-chips" hidden></div>
+      <div id="list-container"></div>
+    </section>
+
+    <!-- Detailansicht eines Songs -->
+    <section id="detail-view" class="view" hidden>
+      <div class="detail-toolbar">
+        <button id="back-button" class="back-button">← Zurück</button>
+        <div class="detail-tools">
+          <button id="fav-toggle" class="tool-button" title="Favorit">☆</button>
+          <button id="font-smaller" class="tool-button" title="Schrift kleiner">A−</button>
+          <button id="font-bigger" class="tool-button" title="Schrift größer">A+</button>
+        </div>
+      </div>
+      <h2 id="song-title" class="song-title"></h2>
+      <div id="view-switch" class="view-switch" hidden>
+        <button data-mode="original" class="switch-btn">Original</button>
+        <button data-mode="translation" class="switch-btn">Übersetzung</button>
+      </div>
+      <div id="song-content" class="song-content"></div>
+    </section>
+
+    <p id="status" class="status" role="status"></p>
+  </main>
+
+  <!-- Google-Login-Bibliothek -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+  <!-- Reihenfolge wichtig: erst Einstellungen, dann Datenabfrage, dann App -->
+  <script src="config.js"></script>
+  <script src="datasource.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
