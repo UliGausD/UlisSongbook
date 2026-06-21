@@ -27,6 +27,9 @@ const viewSwitch = document.getElementById("view-switch");
 const favToggle = document.getElementById("fav-toggle");
 const fontSmaller = document.getElementById("font-smaller");
 const fontBigger = document.getElementById("font-bigger");
+const infoToggle = document.getElementById("info-toggle");
+const playlistNav = document.getElementById("playlist-nav");
+const prevButton = document.getElementById("prev-button");
 const nextButton = document.getElementById("next-button");
 
 let tokenClient = null;
@@ -188,6 +191,17 @@ async function preloadTags() {
   if (playlistTitles.size > 0) {
     allSongs = allSongs.filter((s) => !playlistTitles.has(s.title));
   }
+
+  // Zusätzlich Playlisten aus dem Unterordner "Playlist" einlesen.
+  try {
+    const folderPlaylists = await fetchPlaylists();
+    for (const p of folderPlaylists) {
+      playlists.push({ title: p.title, songTitles: parsePlaylistBody(p.text) });
+    }
+  } catch {
+    // Kein Unterordner / Fehler -> einfach keine zusätzlichen Playlisten.
+  }
+
   playlists.sort((a, b) => a.title.localeCompare(b.title, "de"));
 
   renderTagChips();
@@ -555,7 +569,7 @@ async function openSong(song, context) {
     viewMode = "original";
     updateSwitchButtons();
     renderSong();
-    setupNextButton();
+    setupPlaylistNav();
 
     rememberRecent(song.title);
     requestWakeLock();
@@ -564,23 +578,35 @@ async function openSong(song, context) {
   }
 }
 
-// "Weiter →"-Knopf, wenn das Lied aus einer Playlist geöffnet wurde.
-function setupNextButton() {
-  if (playlistContext) {
-    const resolved = resolvePlaylistSongs(playlistContext.playlist);
-    let nextIdx = playlistContext.index + 1;
-    while (nextIdx < resolved.length && !resolved[nextIdx].song) nextIdx++;
-    if (nextIdx < resolved.length) {
-      nextButton.hidden = false;
-      nextButton.onclick = () =>
-        openSong(resolved[nextIdx].song, {
-          playlist: playlistContext.playlist,
-          index: nextIdx,
-        });
-      return;
-    }
+// "← Vorheriges" / "Weiter →", wenn aus einer Playlist geöffnet.
+function setupPlaylistNav() {
+  if (!playlistContext) {
+    playlistNav.hidden = true;
+    return;
   }
-  nextButton.hidden = true;
+  const resolved = resolvePlaylistSongs(playlistContext.playlist);
+
+  // Nachbarn finden, fehlende Einträge überspringen.
+  let prevIdx = playlistContext.index - 1;
+  while (prevIdx >= 0 && !resolved[prevIdx].song) prevIdx--;
+  let nextIdx = playlistContext.index + 1;
+  while (nextIdx < resolved.length && !resolved[nextIdx].song) nextIdx++;
+
+  const hasPrev = prevIdx >= 0;
+  const hasNext = nextIdx < resolved.length;
+  prevButton.hidden = !hasPrev;
+  nextButton.hidden = !hasNext;
+  playlistNav.hidden = !hasPrev && !hasNext;
+
+  const pl = playlistContext.playlist;
+  if (hasPrev) {
+    prevButton.onclick = () =>
+      openSong(resolved[prevIdx].song, { playlist: pl, index: prevIdx });
+  }
+  if (hasNext) {
+    nextButton.onclick = () =>
+      openSong(resolved[nextIdx].song, { playlist: pl, index: nextIdx });
+  }
 }
 
 // --- Lied in Original + Übersetzung aufteilen ------------------------
@@ -662,7 +688,11 @@ function renderMeta(text) {
     songMeta.appendChild(a);
   }
 
-  songMeta.hidden = songMeta.children.length === 0;
+  // Info startet eingeklappt; der ℹ️-Knopf blendet sie ein/aus.
+  const hasInfo = songMeta.children.length > 0;
+  songMeta.hidden = true;
+  infoToggle.hidden = !hasInfo;
+  infoToggle.classList.remove("active");
 }
 
 // --- Anzeige je nach gewähltem Modus ---------------------------------
@@ -765,6 +795,11 @@ favToggle.addEventListener("click", () => {
 });
 fontSmaller.addEventListener("click", () => changeFontSize(-2));
 fontBigger.addEventListener("click", () => changeFontSize(2));
+
+infoToggle.addEventListener("click", () => {
+  songMeta.hidden = !songMeta.hidden;
+  infoToggle.classList.toggle("active", !songMeta.hidden);
+});
 
 refreshButton.addEventListener("click", refreshList);
 

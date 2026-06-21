@@ -76,3 +76,39 @@ async function fetchSongContent(id) {
   const response = await driveRequest(url);
   return await response.text();
 }
+
+// --- Playlisten aus dem Unterordner "Playlist" ------------------------
+// Liefert: [ { title: "ZAK", text: "...Dateiinhalt..." }, ... ]
+async function fetchPlaylists() {
+  // 1) Unterordner namens "Playlist" suchen
+  const folderQuery = encodeURIComponent(
+    "'" + CONFIG.FOLDER_ID + "' in parents and name = 'Playlist' and " +
+      "mimeType = 'application/vnd.google-apps.folder' and trashed = false"
+  );
+  const fRes = await driveRequest(
+    "https://www.googleapis.com/drive/v3/files?q=" + folderQuery + "&fields=files(id)"
+  );
+  const folders = (await fRes.json()).files || [];
+  if (folders.length === 0) return []; // kein Unterordner -> keine Playlisten dort
+  const playlistFolderId = folders[0].id;
+
+  // 2) .md-Dateien im Unterordner auflisten
+  const q = encodeURIComponent(
+    "'" + playlistFolderId + "' in parents and trashed = false"
+  );
+  const res = await driveRequest(
+    "https://www.googleapis.com/drive/v3/files?q=" + q +
+      "&fields=files(id,name)&orderBy=name&pageSize=1000"
+  );
+  const files = ((await res.json()).files || []).filter((f) =>
+    f.name.toLowerCase().endsWith(".md")
+  );
+
+  // 3) Inhalt jeder Playlist-Datei laden
+  const result = [];
+  for (const f of files) {
+    const text = await fetchSongContent(f.id);
+    result.push({ title: f.name.replace(/\.md$/i, ""), text });
+  }
+  return result;
+}

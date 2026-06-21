@@ -226,12 +226,17 @@ main {
   font-style: italic;
 }
 
-.next-button {
-  display: block;
-  width: 100%;
+.playlist-nav {
+  display: flex;
+  gap: 10px;
   margin-top: 28px;
-  padding: 16px;
-  font-size: 1.1rem;
+}
+
+.nav-button {
+  flex: 1;
+  padding: 14px;
+  font-size: 1.7rem;
+  line-height: 1;
   color: #fff;
   background: var(--accent);
   border: none;
@@ -239,8 +244,12 @@ main {
   cursor: pointer;
 }
 
-.next-button:active {
+.nav-button:active {
   opacity: 0.85;
+}
+
+.nav-button[hidden] {
+  display: none;
 }
 
 .star-button {

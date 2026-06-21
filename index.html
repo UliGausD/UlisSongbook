@@ -48,6 +48,7 @@
       <div class="detail-toolbar">
         <button id="back-button" class="back-button">← Zurück</button>
         <div class="detail-tools">
+          <button id="info-toggle" class="tool-button" title="Info anzeigen" hidden>ℹ️</button>
           <button id="fav-toggle" class="tool-button" title="Favorit">☆</button>
           <button id="font-smaller" class="tool-button" title="Schrift kleiner">A−</button>
           <button id="font-bigger" class="tool-button" title="Schrift größer">A+</button>
@@ -60,7 +61,10 @@
         <button data-mode="translation" class="switch-btn">Übersetzung</button>
       </div>
       <div id="song-content" class="song-content"></div>
-      <button id="next-button" class="next-button" hidden>Weiter →</button>
+      <div id="playlist-nav" class="playlist-nav" hidden>
+        <button id="prev-button" class="nav-button" title="Vorheriges Lied" aria-label="Vorheriges Lied">←</button>
+        <button id="next-button" class="nav-button" title="Nächstes Lied" aria-label="Nächstes Lied">→</button>
+      </div>
     </section>
 
     <p id="status" class="status" role="status"></p>
