@@ -99,6 +99,31 @@ main {
   cursor: pointer;
 }
 
+/* --- Aktualisieren-Knopf & Zieh-Hinweis ----------------------------- */
+.refresh-button {
+  display: block;
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 12px;
+  font-size: 1rem;
+  color: var(--accent);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.refresh-button:active {
+  background: #eef1f4;
+}
+
+.pull-hint {
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.9rem;
+  padding: 8px 0;
+}
+
 /* --- Suchfeld -------------------------------------------------------- */
 .search-input {
   width: 100%;

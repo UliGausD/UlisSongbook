@@ -15,6 +15,8 @@ const backButton = document.getElementById("back-button");
 const searchInput = document.getElementById("search-input");
 const tagChips = document.getElementById("tag-chips");
 const listContainer = document.getElementById("list-container");
+const refreshButton = document.getElementById("refresh-button");
+const pullHint = document.getElementById("pull-hint");
 
 const songTitleEl = document.getElementById("song-title");
 const songContentEl = document.getElementById("song-content");
@@ -135,6 +137,22 @@ async function loadAndShowList() {
     }
     renderList(searchInput.value);
     preloadTags(); // Tags im Hintergrund einlesen (für die Tag-Suche)
+  } catch (error) {
+    handleError(error);
+  }
+}
+
+// --- Liste neu laden (ohne erneutes Anmelden) ------------------------
+async function refreshList() {
+  setStatus("Liste wird aktualisiert …");
+  // Zwischenspeicher leeren, damit auch geänderte Texte/Tags frisch kommen.
+  songTags = {};
+  contentCache = {};
+  try {
+    allSongs = await fetchSongList();
+    renderList(searchInput.value);
+    setStatus("");
+    preloadTags();
   } catch (error) {
     handleError(error);
   }
@@ -501,6 +519,57 @@ favToggle.addEventListener("click", () => {
 });
 fontSmaller.addEventListener("click", () => changeFontSize(-2));
 fontBigger.addEventListener("click", () => changeFontSize(2));
+
+refreshButton.addEventListener("click", refreshList);
+
+// --- "Runterziehen zum Aktualisieren" (Pull to refresh) --------------
+let pullStartY = 0;
+let pullActive = false;
+let pullReady = false;
+const PULL_THRESHOLD = 90; // so weit ziehen, dann loslassen
+
+document.addEventListener(
+  "touchstart",
+  (e) => {
+    if (listView.hidden || window.scrollY > 0) return;
+    pullStartY = e.touches[0].clientY;
+    pullActive = true;
+    pullReady = false;
+  },
+  { passive: true }
+);
+
+document.addEventListener(
+  "touchmove",
+  (e) => {
+    if (!pullActive || listView.hidden) return;
+    const delta = e.touches[0].clientY - pullStartY;
+    if (delta > 15 && window.scrollY <= 0) {
+      pullReady = delta > PULL_THRESHOLD;
+      pullHint.hidden = false;
+      pullHint.textContent = pullReady
+        ? "Loslassen zum Aktualisieren …"
+        : "Zum Aktualisieren weiter ziehen …";
+    } else {
+      pullHint.hidden = true;
+    }
+  },
+  { passive: true }
+);
+
+document.addEventListener(
+  "touchend",
+  () => {
+    if (!pullActive) return;
+    pullActive = false;
+    pullHint.hidden = true;
+    if (pullReady) {
+      pullReady = false;
+      refreshList();
+    }
+  },
+  { passive: true }
+);
 
 [...viewSwitch.children].forEach((btn) => {
   btn.addEventListener("click", () => {
