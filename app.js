@@ -27,6 +27,7 @@ const viewSwitch = document.getElementById("view-switch");
 const favToggle = document.getElementById("fav-toggle");
 const fontSmaller = document.getElementById("font-smaller");
 const fontBigger = document.getElementById("font-bigger");
+const nextButton = document.getElementById("next-button");
 
 let tokenClient = null;
 let allSongs = [];        // alle geladenen Lieder [{id, title}]
@@ -36,6 +37,9 @@ let songTags = {};        // { Titel: [tag, tag, ...] }
 let contentCache = {};    // { id: Liedtext } – spart erneutes Laden
 let currentParsed = { original: "", translation: "" };
 let viewMode = "original"; // "original" | "translation" | "both"
+let playlists = [];          // [{ title, songTitles: [...] }]
+let activePlaylist = null;   // gerade geöffnete Playlist (in der Liste)
+let playlistContext = null;  // { playlist, index } – für "Weiter →"
 
 // --- Dauerhaft gespeicherte Einstellungen (im Browser) ---------------
 function loadJSON(key, fallback) {
@@ -159,19 +163,59 @@ async function refreshList() {
   }
 }
 
-// --- Tags im Hintergrund einlesen ------------------------------------
+// --- Inhalte im Hintergrund einlesen (Tags + Playlisten) -------------
 async function preloadTags() {
+  playlists = [];
+  const playlistTitles = new Set();
+
   for (const song of allSongs) {
     try {
       const text = await fetchSongContent(song.id);
       contentCache[song.id] = text;
-      songTags[song.title] = parseTags(text);
+      const meta = parseFrontmatter(text);
+      if (meta.typ === "playlist") {
+        playlists.push({ title: song.title, songTitles: parsePlaylistBody(text) });
+        playlistTitles.add(song.title);
+      } else {
+        songTags[song.title] = parseTags(text);
+      }
     } catch {
       // Einzelne fehlerhafte Datei überspringen.
     }
   }
+
+  // Playlist-Dateien sind keine Lieder -> aus der Songliste nehmen.
+  if (playlistTitles.size > 0) {
+    allSongs = allSongs.filter((s) => !playlistTitles.has(s.title));
+  }
+  playlists.sort((a, b) => a.title.localeCompare(b.title, "de"));
+
   renderTagChips();
   if (!listView.hidden) renderList(searchInput.value);
+}
+
+// Liest aus einer Playlist-Notiz die Songtitel in Reihenfolge.
+function parsePlaylistBody(text) {
+  let norm = text.replace(/\r\n/g, "\n");
+  norm = norm.replace(/^---\n[\s\S]*?\n---\n?/, ""); // Frontmatter weg
+  const titles = [];
+  for (const raw of norm.split("\n")) {
+    let line = raw.trim();
+    if (!line || line.startsWith("#")) continue; // leere Zeilen / Überschriften
+    line = line.replace(/^[-*]\s*/, ""); // Listenpunkt "- "
+    line = line.replace(/^\[\[|\]\]$/g, ""); // Wikilink [[ ]]
+    line = line.replace(/\.md$/i, "").trim();
+    if (line) titles.push(line);
+  }
+  return titles;
+}
+
+// Playlist-Titel auf vorhandene Lieder abbilden (Reihenfolge bleibt).
+function resolvePlaylistSongs(pl) {
+  return pl.songTitles.map((t) => ({
+    title: t,
+    song: allSongs.find((s) => s.title.toLowerCase() === t.toLowerCase()) || null,
+  }));
 }
 
 // Tags aus Frontmatter (tags:) UND aus #tags im Text herausziehen.
@@ -185,7 +229,8 @@ function parseTags(text) {
     const block = fm[1];
 
     // a) tags: [weihnachten, ballade]  oder  tags: weihnachten, ballade
-    const inline = block.match(/^tags:\s*(.+)$/m);
+    //    (nur wenn auf derselben Zeile etwas steht – nicht über Zeilenumbruch)
+    const inline = block.match(/^tags:[ \t]+(\S.*)$/m);
     if (inline) {
       inline[1]
         .replace(/[\[\]"']/g, "")
@@ -275,6 +320,12 @@ function renderTagChips() {
 
 // --- Liste anzeigen (Titel- und Tag-Suche, Favoriten, Zuletzt) -------
 function renderList(filterText) {
+  // Ist eine Playlist geöffnet, zeigen wir nur deren Lieder.
+  if (activePlaylist) {
+    renderPlaylistView();
+    return;
+  }
+
   const query = (filterText || "").trim().toLowerCase();
   listContainer.innerHTML = "";
 
@@ -303,7 +354,11 @@ function renderList(filterText) {
     return;
   }
 
-  // Ohne Suche: Favoriten, Zuletzt hinzugefügt, Zuletzt geöffnet, dann alle.
+  // Ohne Suche: Playlisten, Favoriten, Zuletzt hinzugefügt, Zuletzt geöffnet, alle.
+  if (playlists.length > 0) {
+    appendPlaylistSection();
+  }
+
   const favSongs = matches.filter((s) => favorites.includes(s.title));
   if (favSongs.length > 0) {
     appendSection("⭐ Favoriten", favSongs);
@@ -369,6 +424,85 @@ function appendSection(title, songs) {
   listContainer.appendChild(ul);
 }
 
+// --- Playlisten ------------------------------------------------------
+function appendPlaylistSection() {
+  const heading = document.createElement("h3");
+  heading.className = "section-heading";
+  heading.textContent = "▶️ Playlisten";
+  listContainer.appendChild(heading);
+
+  const ul = document.createElement("ul");
+  ul.className = "song-list";
+  for (const pl of playlists) {
+    const li = document.createElement("li");
+    li.className = "song-row";
+    const btn = document.createElement("button");
+    btn.className = "song-item playlist-item";
+    btn.textContent = "▶️ " + pl.title;
+    btn.addEventListener("click", () => openPlaylist(pl));
+    li.appendChild(btn);
+    ul.appendChild(li);
+  }
+  listContainer.appendChild(ul);
+}
+
+function openPlaylist(pl) {
+  activePlaylist = pl;
+  searchInput.hidden = true;
+  refreshButton.hidden = true;
+  tagChips.hidden = true;
+  window.scrollTo(0, 0);
+  renderPlaylistView();
+}
+
+function leavePlaylist() {
+  activePlaylist = null;
+  searchInput.hidden = false;
+  refreshButton.hidden = false;
+  renderTagChips();
+  renderList(searchInput.value);
+}
+
+function renderPlaylistView() {
+  listContainer.innerHTML = "";
+
+  const back = document.createElement("button");
+  back.className = "back-button";
+  back.textContent = "← Alle Lieder";
+  back.addEventListener("click", leavePlaylist);
+  listContainer.appendChild(back);
+
+  const heading = document.createElement("h3");
+  heading.className = "section-heading";
+  heading.textContent = "▶️ " + activePlaylist.title;
+  listContainer.appendChild(heading);
+
+  const resolved = resolvePlaylistSongs(activePlaylist);
+  const ul = document.createElement("ul");
+  ul.className = "song-list";
+
+  resolved.forEach((entry, idx) => {
+    const li = document.createElement("li");
+    li.className = "song-row";
+    const btn = document.createElement("button");
+    btn.className = "song-item";
+
+    if (entry.song) {
+      btn.textContent = idx + 1 + ". " + entry.song.title;
+      btn.addEventListener("click", () =>
+        openSong(entry.song, { playlist: activePlaylist, index: idx })
+      );
+    } else {
+      btn.textContent = idx + 1 + ". " + entry.title + " (nicht gefunden)";
+      btn.disabled = true;
+      btn.classList.add("missing");
+    }
+    li.appendChild(btn);
+    ul.appendChild(li);
+  });
+  listContainer.appendChild(ul);
+}
+
 // --- Favoriten -------------------------------------------------------
 function toggleFavorite(title) {
   if (favorites.includes(title)) {
@@ -395,8 +529,9 @@ function rememberRecent(title) {
 }
 
 // --- Einzelnen Song öffnen -------------------------------------------
-async function openSong(song) {
+async function openSong(song, context) {
   currentSong = song;
+  playlistContext = context || null;
   showOnly(detailView);
   songTitleEl.textContent = song.title;
   songContentEl.innerHTML = "";
@@ -420,12 +555,32 @@ async function openSong(song) {
     viewMode = "original";
     updateSwitchButtons();
     renderSong();
+    setupNextButton();
 
     rememberRecent(song.title);
     requestWakeLock();
   } catch (error) {
     handleError(error);
   }
+}
+
+// "Weiter →"-Knopf, wenn das Lied aus einer Playlist geöffnet wurde.
+function setupNextButton() {
+  if (playlistContext) {
+    const resolved = resolvePlaylistSongs(playlistContext.playlist);
+    let nextIdx = playlistContext.index + 1;
+    while (nextIdx < resolved.length && !resolved[nextIdx].song) nextIdx++;
+    if (nextIdx < resolved.length) {
+      nextButton.hidden = false;
+      nextButton.onclick = () =>
+        openSong(resolved[nextIdx].song, {
+          playlist: playlistContext.playlist,
+          index: nextIdx,
+        });
+      return;
+    }
+  }
+  nextButton.hidden = true;
 }
 
 // --- Lied in Original + Übersetzung aufteilen ------------------------
@@ -458,7 +613,7 @@ function parseSong(text) {
 function parseFrontmatter(text) {
   const norm = text.replace(/\r\n/g, "\n");
   const fm = norm.match(/^---\n([\s\S]*?)\n---/);
-  const meta = { summary: "", source: "" };
+  const meta = { summary: "", source: "", typ: "" };
   if (!fm) return meta;
   const block = fm[1];
 
@@ -466,6 +621,9 @@ function parseFrontmatter(text) {
 
   const s = block.match(/^summary:\s*(.+)$/m);
   if (s) meta.summary = unquote(s[1]);
+
+  const t = block.match(/^typ:[ \t]+(\S.*)$/m);
+  if (t) meta.typ = unquote(t[1]).toLowerCase();
 
   // Quelle: Feld "source" oder "quelle"
   const src = block.match(/^(?:source|quelle):\s*(.+)$/m);

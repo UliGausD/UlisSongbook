@@ -216,6 +216,33 @@ main {
   background: #eef1f4;
 }
 
+.playlist-item {
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.song-item.missing {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.next-button {
+  display: block;
+  width: 100%;
+  margin-top: 28px;
+  padding: 16px;
+  font-size: 1.1rem;
+  color: #fff;
+  background: var(--accent);
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.next-button:active {
+  opacity: 0.85;
+}
+
 .star-button {
   flex: 0 0 auto;
   width: 52px;
