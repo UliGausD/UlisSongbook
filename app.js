@@ -10,7 +10,6 @@ const listView = document.getElementById("list-view");
 const detailView = document.getElementById("detail-view");
 
 const loginButton = document.getElementById("login-button");
-const reloginButton = document.getElementById("relogin-button");
 const backButton = document.getElementById("back-button");
 
 const searchInput = document.getElementById("search-input");
@@ -481,7 +480,6 @@ document.addEventListener("visibilitychange", () => {
 function handleError(error) {
   if (error instanceof AuthExpiredError) {
     showOnly(loginView);
-    reloginButton.hidden = false;
     setStatus("Sitzung abgelaufen – bitte neu anmelden.");
   } else {
     setStatus("Es ist ein Fehler aufgetreten: " + error.message);
@@ -490,10 +488,6 @@ function handleError(error) {
 
 // --- Knöpfe verbinden -------------------------------------------------
 loginButton.addEventListener("click", startLogin);
-reloginButton.addEventListener("click", () => {
-  reloginButton.hidden = true;
-  startLogin();
-});
 backButton.addEventListener("click", () => {
   releaseWakeLock();
   setStatus("");
