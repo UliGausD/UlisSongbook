@@ -196,6 +196,11 @@ main {
   border-color: var(--accent);
 }
 
+.tag-chip.tag-more {
+  color: var(--muted);
+  border-style: dashed;
+}
+
 /* --- Abschnitts-Überschriften (Favoriten / Zuletzt / Alle) ---------- */
 .section-heading {
   margin: 18px 4px 8px;

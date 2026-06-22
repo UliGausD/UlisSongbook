@@ -153,8 +153,14 @@ async function loadAndShowList() {
 
   try {
     allSongs = await fetchSongList();
-    setStatus("");
+    // Playlisten aus dem Unterordner sofort laden, damit sie direkt sichtbar sind.
+    try {
+      const fps = await fetchPlaylists();
+      playlists = fps.map((p) => ({ title: p.title, songTitles: parsePlaylistBody(p.text) }));
+      playlists.sort((a, b) => a.title.localeCompare(b.title, "de"));
+    } catch { playlists = []; }
 
+    setStatus("");
     if (allSongs.length === 0) {
       setStatus("Keine Lieder im Ordner gefunden.");
       return;
@@ -169,11 +175,15 @@ async function loadAndShowList() {
 // --- Liste neu laden (ohne erneutes Anmelden) ------------------------
 async function refreshList() {
   setStatus("Liste wird aktualisiert …");
-  // Zwischenspeicher leeren, damit auch geänderte Texte/Tags frisch kommen.
   songTags = {};
   contentCache = {};
   try {
     allSongs = await fetchSongList();
+    try {
+      const fps = await fetchPlaylists();
+      playlists = fps.map((p) => ({ title: p.title, songTitles: parsePlaylistBody(p.text) }));
+      playlists.sort((a, b) => a.title.localeCompare(b.title, "de"));
+    } catch { playlists = []; }
     renderList(searchInput.value);
     setStatus("");
     preloadTags();
@@ -182,9 +192,9 @@ async function refreshList() {
   }
 }
 
-// --- Inhalte im Hintergrund einlesen (Tags + Playlisten) -------------
+// --- Inhalte im Hintergrund einlesen (Tags + Playlisten Hauptordner) -
 async function preloadTags() {
-  playlists = [];
+  const newPlaylists = []; // Playlisten aus dem Hauptordner (typ: playlist)
   const playlistTitles = new Set();
 
   for (const song of allSongs) {
@@ -193,7 +203,7 @@ async function preloadTags() {
       contentCache[song.id] = text;
       const meta = parseFrontmatter(text);
       if (meta.typ === "playlist") {
-        playlists.push({ title: song.title, songTitles: parsePlaylistBody(text) });
+        newPlaylists.push({ title: song.title, songTitles: parsePlaylistBody(text) });
         playlistTitles.add(song.title);
       } else {
         songTags[song.title] = parseTags(text);
@@ -208,16 +218,11 @@ async function preloadTags() {
     allSongs = allSongs.filter((s) => !playlistTitles.has(s.title));
   }
 
-  // Zusätzlich Playlisten aus dem Unterordner "Playlist" einlesen.
-  try {
-    const folderPlaylists = await fetchPlaylists();
-    for (const p of folderPlaylists) {
-      playlists.push({ title: p.title, songTitles: parsePlaylistBody(p.text) });
-    }
-  } catch {
-    // Kein Unterordner / Fehler -> einfach keine zusätzlichen Playlisten.
+  // Playlisten aus dem Hauptordner (typ: playlist) ergänzen, falls noch nicht vorhanden.
+  const knownTitles = new Set(playlists.map((p) => p.title));
+  for (const p of newPlaylists) {
+    if (!knownTitles.has(p.title)) playlists.push(p);
   }
-
   playlists.sort((a, b) => a.title.localeCompare(b.title, "de"));
 
   renderTagChips();
@@ -315,28 +320,34 @@ function artistSlugSet() {
 // --- Kategorie-Filter (aufgeräumte Tag-Chips) ------------------------
 function renderTagChips() {
   const artists = artistSlugSet();
-  const all = new Set();
+  const freq = {};
   Object.values(songTags).forEach((list) =>
     list.forEach((t) => {
-      if (NOISE_TAGS.includes(t)) return; // Allerwelts-Tags weglassen
-      if (artists.has(t)) return; // Interpreten-Namen weglassen
-      all.add(t);
+      if (NOISE_TAGS.includes(t)) return;
+      if (artists.has(t)) return;
+      freq[t] = (freq[t] || 0) + 1;
     })
   );
 
   tagChips.innerHTML = "";
-  if (all.size === 0) {
+  if (Object.keys(freq).length === 0) {
     tagChips.hidden = true;
     return;
   }
   tagChips.hidden = false;
 
-  [...all].sort().forEach((tag) => {
+  const MAX_VISIBLE = 8;
+  // Häufigste Tags zuerst, bei Gleichstand alphabetisch.
+  const sorted = Object.keys(freq).sort(
+    (a, b) => freq[b] - freq[a] || a.localeCompare(b, "de")
+  );
+  let expanded = false;
+
+  function buildChip(tag) {
     const chip = document.createElement("button");
     chip.className = "tag-chip";
     chip.textContent = "#" + tag;
     chip.addEventListener("click", () => {
-      // Bereits aktiver Chip -> Filter aufheben.
       if (searchInput.value.trim().toLowerCase() === tag) {
         searchInput.value = "";
       } else {
@@ -344,8 +355,27 @@ function renderTagChips() {
       }
       renderList(searchInput.value);
     });
-    tagChips.appendChild(chip);
-  });
+    return chip;
+  }
+
+  function renderChips() {
+    tagChips.innerHTML = "";
+    const visible = expanded ? sorted : sorted.slice(0, MAX_VISIBLE);
+    visible.forEach((tag) => tagChips.appendChild(buildChip(tag)));
+
+    if (sorted.length > MAX_VISIBLE) {
+      const more = document.createElement("button");
+      more.className = "tag-chip tag-more";
+      more.textContent = expanded ? "Weniger ▲" : `+${sorted.length - MAX_VISIBLE} mehr ▼`;
+      more.addEventListener("click", () => {
+        expanded = !expanded;
+        renderChips();
+      });
+      tagChips.appendChild(more);
+    }
+  }
+
+  renderChips();
 }
 
 // --- Liste anzeigen (Titel- und Tag-Suche, Favoriten, Zuletzt) -------
