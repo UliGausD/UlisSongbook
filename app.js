@@ -31,6 +31,7 @@ const infoToggle = document.getElementById("info-toggle");
 const playlistNav = document.getElementById("playlist-nav");
 const prevButton = document.getElementById("prev-button");
 const nextButton = document.getElementById("next-button");
+const playlistPos = document.getElementById("playlist-pos");
 const darkToggle = document.getElementById("dark-toggle");
 
 let tokenClient = null;
@@ -396,7 +397,7 @@ function renderList(filterText) {
   const recentlyAdded = matches
     .filter((s) => s.createdTime)
     .sort((a, b) => (a.createdTime < b.createdTime ? 1 : -1))
-    .slice(0, 5);
+    .slice(0, 10);
   if (recentlyAdded.length > 0) {
     appendSection("🆕 Zuletzt hinzugefügt", recentlyAdded);
   }
@@ -404,7 +405,7 @@ function renderList(filterText) {
   const recentSongs = recent
     .map((title) => matches.find((s) => s.title === title))
     .filter(Boolean)
-    .slice(0, 5);
+    .slice(0, 10);
   if (recentSongs.length > 0) {
     appendSection("🕘 Zuletzt geöffnet", recentSongs);
   }
@@ -458,14 +459,14 @@ function splitArtistTitle(full) {
   return { artist: "", title: full.trim() };
 }
 
-// "Alle Lieder": Umschalter (Titel A–Z / Interpret) + gruppierte Liste.
+// "Alle Lieder": Umschalter (Titel A–Z / Interpret) + ausklappbare Gruppen.
 function appendAllSongs(songs) {
-  // Umschalter
   const heading = document.createElement("h3");
   heading.className = "section-heading";
   heading.textContent = "Alle Lieder";
   listContainer.appendChild(heading);
 
+  // Sortier-Umschalter
   const toggle = document.createElement("div");
   toggle.className = "sort-toggle";
   [
@@ -484,8 +485,14 @@ function appendAllSongs(songs) {
   });
   listContainer.appendChild(toggle);
 
+  // "Alle anzeigen / Alle einklappen"-Knopf
+  const expandBtn = document.createElement("button");
+  expandBtn.className = "expand-all-btn";
+  expandBtn.textContent = "Alle anzeigen";
+  listContainer.appendChild(expandBtn);
+
   // Gruppieren
-  const groups = new Map(); // Überschrift -> [{song, displayText}]
+  const groups = new Map();
   const addTo = (key, song, displayText) => {
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push({ song, displayText });
@@ -505,7 +512,9 @@ function appendAllSongs(songs) {
     }
   }
 
-  // Überschriften sortieren und ausgeben
+  const groupUls = [];
+  const groupHeads = [];
+
   const keys = [...groups.keys()].sort((a, b) => a.localeCompare(b, "de"));
   for (const key of keys) {
     const h = document.createElement("h4");
@@ -515,12 +524,34 @@ function appendAllSongs(songs) {
 
     const ul = document.createElement("ul");
     ul.className = "song-list";
+    ul.hidden = true; // startet eingeklappt
     groups
       .get(key)
       .sort((a, b) => a.displayText.localeCompare(b.displayText, "de"))
       .forEach((e) => ul.appendChild(buildSongRow(e.song, e.displayText)));
     listContainer.appendChild(ul);
+
+    groupUls.push(ul);
+    groupHeads.push(h);
+
+    h.addEventListener("click", () => {
+      const nowOpen = ul.hidden;
+      ul.hidden = !nowOpen;
+      h.classList.toggle("open", nowOpen);
+      // Knopf-Text synchron halten
+      const anyOpen = groupUls.some((u) => !u.hidden);
+      expandBtn.textContent = anyOpen ? "Alle einklappen" : "Alle anzeigen";
+    });
   }
+
+  expandBtn.addEventListener("click", () => {
+    const expand = groupUls.some((u) => u.hidden); // wenn mind. eine zu, alle öffnen
+    groupUls.forEach((ul, i) => {
+      ul.hidden = !expand;
+      groupHeads[i].classList.toggle("open", expand);
+    });
+    expandBtn.textContent = expand ? "Alle einklappen" : "Alle anzeigen";
+  });
 }
 
 // --- Playlisten ------------------------------------------------------
@@ -623,7 +654,7 @@ function updateFavToggle() {
 
 // --- Zuletzt geöffnet merken -----------------------------------------
 function rememberRecent(title) {
-  recent = [title, ...recent.filter((t) => t !== title)].slice(0, 10);
+  recent = [title, ...recent.filter((t) => t !== title)].slice(0, 20);
   saveJSON("songbook_recent", recent);
 }
 
@@ -667,9 +698,11 @@ async function openSong(song, context) {
 function setupPlaylistNav() {
   if (!playlistContext) {
     playlistNav.hidden = true;
+    playlistPos.textContent = "";
     return;
   }
   const resolved = resolvePlaylistSongs(playlistContext.playlist);
+  playlistPos.textContent = (playlistContext.index + 1) + " / " + resolved.length;
 
   // Nachbarn finden, fehlende Einträge überspringen.
   let prevIdx = playlistContext.index - 1;

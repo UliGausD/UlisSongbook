@@ -241,12 +241,49 @@ main {
   background: var(--accent);
 }
 
-/* --- Gruppen-Überschriften (A, B, C … / Interpret) ------------------ */
+/* --- Gruppen-Überschriften (A, B, C … / Interpret) ausklappbar ------- */
 .group-heading {
   margin: 14px 4px 6px;
   font-size: 1.1rem;
   font-weight: 700;
   color: var(--accent);
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.group-heading::after {
+  content: "›";
+  font-size: 1.2rem;
+  font-weight: 400;
+  opacity: 0.5;
+  transition: transform 0.15s;
+  display: inline-block;
+}
+
+.group-heading.open::after {
+  transform: rotate(90deg);
+}
+
+/* --- "Alle anzeigen / Alle einklappen"-Knopf ------------------------ */
+.expand-all-btn {
+  display: block;
+  width: 100%;
+  padding: 9px;
+  margin-bottom: 4px;
+  font-size: 0.9rem;
+  color: var(--accent);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+  text-align: center;
+}
+
+.expand-all-btn:active {
+  background: var(--press);
 }
 
 /* --- Songliste ------------------------------------------------------- */
@@ -313,6 +350,16 @@ main {
 
 .nav-button[hidden] {
   display: none;
+}
+
+.playlist-pos {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 52px;
+  font-size: 0.9rem;
+  color: var(--muted);
+  text-align: center;
 }
 
 .star-button {
