@@ -201,6 +201,12 @@ main {
   border-style: dashed;
 }
 
+.tags-loading {
+  font-size: 0.9rem;
+  color: var(--muted);
+  font-style: italic;
+}
+
 /* --- Abschnitts-Überschriften (Favoriten / Zuletzt / Alle) ---------- */
 .section-heading {
   margin: 18px 4px 8px;

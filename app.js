@@ -194,6 +194,10 @@ async function refreshList() {
 
 // --- Inhalte im Hintergrund einlesen (Tags + Playlisten Hauptordner) -
 async function preloadTags() {
+  // Ladehinweis anzeigen, bis Tags fertig sind.
+  tagChips.hidden = false;
+  tagChips.innerHTML = '<span class="tags-loading">Tags werden geladen …</span>';
+
   const newPlaylists = []; // Playlisten aus dem Hauptordner (typ: playlist)
   const playlistTitles = new Set();
 
